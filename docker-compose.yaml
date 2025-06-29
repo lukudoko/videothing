@@ -1,0 +1,45 @@
+# Modern Docker Compose - no version needed
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL_BUILD: "http://192.168.3.23:8005"
+    container_name: nextjs-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        # Pass your host user's UID and GID
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    container_name: python-backend
+    ports:
+      - "8005:8005"
+    volumes:
+      - /mnt/drive/Media:/app/downloads_root
+    environment:
+      - BASE_DOWNLOAD_DIR_ENV=/app/downloads_root
+      # GPU-related environment variables
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+    # GPU access - use runtime method (more reliable)
+    runtime: nvidia
+    restart: unless-stopped
+    networks:
+      - app-network
+
+# Create a custom network for better container communication
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,45 @@
+# Stage 1: Build the Next.js application
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Declare a build argument for the API base URL
+# This ARG will receive its value from docker-compose.yml
+ARG NEXT_PUBLIC_API_BASE_URL_BUILD
+
+# Set the environment variable that Next.js expects from the build argument's value.
+# This makes it available during the 'npm run build' step for Next.js.
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL_BUILD
+
+# Copy package.json and package-lock.json (npm's lock file)
+COPY frontend/package.json frontend/package-lock.json* ./
+
+# Install dependencies using npm
+RUN npm install --legacy-peer-deps
+
+# Copy the rest of the frontend code
+COPY frontend/ .
+
+# Build the Next.js app using npm
+RUN npm run build
+
+# Stage 2: Run the Next.js application
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Install only production dependencies using npm
+COPY --from=builder /app/package.json /app/package-lock.json* ./
+RUN npm install --production --ignore-scripts --prefer-offline
+
+# Copy the built application
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/node_modules ./node_modules
+#COPY --from=builder /app/next.config.js ./
+#COPY --from=builder /app/middleware.js ./ # If you have a middleware.js file
+
+EXPOSE 3000
+
+# Command to start the Next.js app using npm
+CMD npm start
