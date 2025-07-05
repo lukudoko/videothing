@@ -5,7 +5,8 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        NEXT_PUBLIC_API_BASE_URL_BUILD: "http://192.168.3.23:8005"
+        # Changed this line to use the service name 'backend' and its internal port
+        NEXT_PUBLIC_BACKEND_URL: "http://backend:8005" # This is the key change!
     container_name: nextjs-frontend
     ports:
       - "3000:3000"
@@ -25,10 +26,11 @@ services:
         GROUP_ID: ${GROUP_ID:-1000}
     container_name: python-backend
     ports:
-      - "8005:8005"
+      - "8005:8005" # Keep this if you want to access the backend directly from your host for debugging/testing
     volumes:
-      - /mnt/drive/Media:/app/downloads_root
+      - /mnt/drive/Media:/app/downloads_root # Ensure this is where your app expects to write
     environment:
+      # Ensure this matches the volume mount path inside the container
       - BASE_DOWNLOAD_DIR_ENV=/app/downloads_root
       # GPU-related environment variables
       - NVIDIA_VISIBLE_DEVICES=all

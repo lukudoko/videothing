@@ -1,121 +1,92 @@
-# queue_manager.py (With Duplicate Prevention)
+# queue_manager.py (Simplified - REMOVING completed_urls PERSISTENCE)
 
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import time
 import os
-import json # Import json for reading/writing state
-import logging # For better logging
+import json
+import logging
 
 from downloader import download_video
 from converter import convert_video
 
-# Setup basic logging for this module
 logger = logging.getLogger(__name__)
-# Assuming basicConfig is set up in main.py, so this logger will inherit its settings.
-# If not, you might want to add logging.basicConfig here for local testing/debugging.
 
+downloads = {}
+downloads_lock = threading.Lock() # Keep the lock for in-memory 'downloads' dictionary
 
-downloads = {} # Global dictionary accessible by FastAPI's /progress endpoint
+# --- REMOVE THESE LINES! ---
+# completed_urls = set()
+# DOWNLOAD_STATE_FILE = os.path.join(os.path.dirname(__file__), "completed_downloads.json")
+# def _load_completed_urls(): ... (remove this function)
+# def _save_completed_urls(): ... (remove this function)
+# _load_completed_urls() # Remove this call
 
-# --- Configuration for Download State Persistence ---
-# Define the path for your completed downloads state file.
-# It's good practice to place this in a known configuration/data directory.
-# For simplicity, let's put it next to your main.py or in the BASE_DOWNLOAD_DIR.
-# Adjust this path as needed.
-DOWNLOAD_STATE_FILE = os.path.join(os.path.dirname(__file__), "completed_downloads.json")
-
-# Set to store URLs that have successfully finished
-completed_urls = set()
-
-# --- Functions for State Persistence ---
-def _load_completed_urls():
-    """Loads previously completed URLs from the state file."""
-    global completed_urls
-    if os.path.exists(DOWNLOAD_STATE_FILE):
-        try:
-            with open(DOWNLOAD_STATE_FILE, 'r') as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    completed_urls = set(data)
-                    logger.info(f"Loaded {len(completed_urls)} completed URLs from {DOWNLOAD_STATE_FILE}")
-                else:
-                    logger.warning(f"State file {DOWNLOAD_STATE_FILE} has unexpected format. Starting fresh.")
-                    completed_urls = set()
-        except json.JSONDecodeError as e:
-            logger.error(f"Error decoding JSON from {DOWNLOAD_STATE_FILE}: {e}. Starting fresh.")
-            completed_urls = set()
-        except Exception as e:
-            logger.error(f"Unexpected error loading state from {DOWNLOAD_STATE_FILE}: {e}. Starting fresh.")
-            completed_urls = set()
-    else:
-        logger.info(f"No completed downloads state file found at {DOWNLOAD_STATE_FILE}.")
-    return completed_urls
-
-def _save_completed_urls():
-    """Saves the current set of completed URLs to the state file."""
-    try:
-        with open(DOWNLOAD_STATE_FILE, 'w') as f:
-            json.dump(list(completed_urls), f) # Convert set to list for JSON serialization
-            logger.debug(f"Saved {len(completed_urls)} completed URLs to {DOWNLOAD_STATE_FILE}")
-    except Exception as e:
-        logger.error(f"Error saving completed URLs to {DOWNLOAD_STATE_FILE}: {e}")
-
-# Load state when the module is imported (i.e., when FastAPI app starts)
-_load_completed_urls()
-
-# --- ThreadPoolExecutors (as previously configured) ---
+# --- ThreadPoolExecutors (unchanged) ---
 download_executor = ThreadPoolExecutor(max_workers=1)
 conversion_executor = ThreadPoolExecutor(max_workers=4)
 
+# --- CLEAR PROGRESS FUNCTION (unchanged logic, only affects 'downloads' in memory) ---
+def clear_finished_progress_from_backend():
+    """
+    Clears entries from the 'downloads' dictionary if their status is 'completed',
+    'converted', 'failed', or 'skipped'.
+    """
+    with downloads_lock:
+        urls_to_remove = [
+            url for url, progress in downloads.items()
+            if progress.get("status") in ['completed', 'converted', 'failed', 'skipped']
+        ]
+        for url in urls_to_remove:
+            del downloads[url]
+        logger.info(f"Cleared {len(urls_to_remove)} finished entries from active downloads.")
+        return len(urls_to_remove)
+
 def update_download_progress(url, status=None, progress=None, speed=None, eta=None, error=None, output_path=None, message=None, conversion_progress=None):
     """Updates the global downloads dictionary with progress information."""
-    current_status = downloads.get(url, {})
+    with downloads_lock:
+        current_status = downloads.get(url, {})
 
-    # Check for specific status changes that indicate completion
-    if status == "converted":
-        if url not in completed_urls:
-            completed_urls.add(url) # Add to our set of completed URLs
-            _save_completed_urls()   # Persist the updated set
-            logger.info(f"Added '{url}' to completed downloads list.")
+        # --- REMOVE completed_urls.add() logic from here ---
+        # if status == "converted":
+        #     if url not in completed_urls:
+        #         completed_urls.add(url)
+        #         _save_completed_urls()
+        #         logger.info(f"Added '{url}' to completed downloads list.")
+        # elif status == "skipped":
+        #     if url not in completed_urls:
+        #         completed_urls.add(url)
+        #         _save_completed_urls()
+        #         logger.info(f"Added '{url}' to completed downloads list due to skipping.")
 
-    # Also handle "skipped" if you consider skipped items as "already done" and want to prevent re-attempts
-    # elif status == "skipped":
-    #     if url not in completed_urls:
-    #         completed_urls.add(url)
-    #         _save_completed_urls()
-    #         logger.info(f"Added '{url}' to completed downloads list due to skipping.")
+        if status is not None:
+            current_status["status"] = status
+        current_status["timestamp"] = time.time()
 
+        if progress is not None:
+            current_status["progress_percentage"] = progress
+        if speed is not None:
+            current_status["download_speed"] = speed
+        if eta is not None:
+            current_status["eta"] = eta
+        if error is not None:
+            current_status["error_message"] = error
+        if output_path is not None:
+            current_status["output_path"] = output_path
+        if message is not None:
+            current_status["message"] = message
+        if conversion_progress is not None:
+            current_status["conversion_percentage"] = conversion_progress
 
-    # --- Rest of the function remains the same ---
-    if status is not None:
-        current_status["status"] = status
-    current_status["timestamp"] = time.time()
+        downloads[url] = current_status
 
-    if progress is not None:
-        current_status["progress_percentage"] = progress
-    if speed is not None:
-        current_status["download_speed"] = speed
-    if eta is not None:
-        current_status["eta"] = eta
-    if error is not None:
-        current_status["error_message"] = error
-    if output_path is not None:
-        current_status["output_path"] = output_path
-    if message is not None:
-        current_status["message"] = message
-    if conversion_progress is not None:
-        current_status["conversion_percentage"] = conversion_progress
-
-    downloads[url] = current_status
 
 def _download_task(url: str, path: str):
-    """Background task for downloading a video."""
     logger.info(f"Starting download task for {url} into {path}")
     update_download_progress(url, status="queued", message="Download queued...")
     downloaded_filepath = None
     try:
-        downloaded_filepath = download_video(url, path,
+        downloaded_filepath = download_video(url, path, # path is the target directory
                                              lambda p, s, e: update_download_progress(url, progress=p, speed=s, eta=e, status="downloading"))
 
         update_download_progress(url, status="completed", output_path=downloaded_filepath, message="Download completed. Queueing for conversion...")
@@ -126,11 +97,10 @@ def _download_task(url: str, path: str):
 
     except Exception as e:
         error_msg = f"Download failed for {url}: {str(e)}"
-        logger.error(error_msg, exc_info=True) # exc_info=True logs traceback
+        logger.error(error_msg, exc_info=True)
         update_download_progress(url, status="failed", error=error_msg, message=error_msg)
 
 def _convert_task(original_video_url: str, downloaded_filepath: str):
-    """Background task for converting a video."""
     logger.info(f"Starting conversion task for {downloaded_filepath}")
     update_download_progress(original_video_url, status="converting", message="Starting conversion...")
     try:
@@ -144,7 +114,7 @@ def _convert_task(original_video_url: str, downloaded_filepath: str):
         if conversion_result["status"] == "success":
             update_download_progress(
                 original_video_url,
-                status="converted", # This will trigger adding to completed_urls and saving
+                status="converted",
                 message=conversion_result["message"],
                 output_path=conversion_result["output_file"],
                 conversion_progress=100
@@ -153,7 +123,7 @@ def _convert_task(original_video_url: str, downloaded_filepath: str):
         elif conversion_result["status"] == "skipped":
              update_download_progress(
                 original_video_url,
-                status="converted", # Treat skipped as effectively converted for deduplication
+                status="converted",
                 message=conversion_result["message"],
                 conversion_progress=100
             )
@@ -172,23 +142,23 @@ def _convert_task(original_video_url: str, downloaded_filepath: str):
         logger.error(error_msg, exc_info=True)
         update_download_progress(original_video_url, status="failed", error=error_msg, message=error_msg)
 
-def add_download_job(url: str, path: str):
-    """Adds a download job to the download_executor, checking for duplicates first."""
-    # First, check if the URL is already in our persistently completed list
-    if url in completed_urls:
-        logger.info(f"Download for {url} skipped: Already completed in previous session.")
-        # Optionally, update status to "skipped" and set conversion_progress to 100
-        downloads[url] = {"status": "skipped", "message": "Already downloaded/converted!", "conversion_percentage": 100}
-        return False # Indicate that the job was not actually queued
+def add_download_job(url: str, path: str): # 'path' is now the target directory
+    """Adds a download job to the download_executor, checking only for in-progress duplicates."""
+    # --- REMOVE completed_urls check ---
+    # if url in completed_urls:
+    #     logger.info(f"Download for {url} skipped: Already completed in previous session.")
+    #     with downloads_lock:
+    #         downloads[url] = {"status": "skipped", "message": "Already downloaded/converted!", "conversion_percentage": 100}
+    #     return False
 
-    # Then, check if the URL is currently active or recently completed in the current session
-    if url in downloads and downloads[url].get("status") not in ["failed", "converted", "skipped"]:
-        logger.info(f"Download for {url} skipped: Already in progress or recently queued.")
-        return False # Job already active in current session
+    with downloads_lock:
+        # Check if the URL is currently active (queued, downloading, converting)
+        if url in downloads and downloads[url].get("status") not in ["failed", "converted", "skipped"]:
+            logger.info(f"Download for {url} skipped: Already in progress or recently queued.")
+            return False
 
-    downloads[url] = {"status": "queued", "progress_percentage": 0, "message": "Download queued."}
+        downloads[url] = {"status": "queued", "progress_percentage": 0, "message": "Download queued."}
 
-    # Submit download task to the *download_executor*
-    download_executor.submit(_download_task, url, path)
+    download_executor.submit(_download_task, url, path) # path is the target directory
     logger.info(f"Download job added for {url} into {path}.")
     return True

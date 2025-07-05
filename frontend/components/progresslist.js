@@ -4,23 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@heroui/react"; // HeroUI Button
 import ProgressMonitor from './progressmonitor'; // Import the individual item component
 
-const sectionVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
-};
-
 function ProgressList({ downloadProgress, handleClearProgress }) {
     const hasProgress = Object.keys(downloadProgress).length > 0;
 
     return (
-        <motion.section
-            key="progress-section"
-            className="bg-white p-8 mt-6 rounded-3xl shadow-lg mb-8 border border-gray-200"
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={sectionVariants}
-        >
+        <>
             <div className='flex gap-4 justify-between'>
             <p className="text-3xl font-bold text-gray-800 mb-6 ">
                 Tasks
@@ -62,7 +50,7 @@ function ProgressList({ downloadProgress, handleClearProgress }) {
                     </ul>
                 )}
             </AnimatePresence>
-        </motion.section>
+        </>
     );
 }
 

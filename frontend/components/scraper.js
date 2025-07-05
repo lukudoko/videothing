@@ -1,7 +1,4 @@
-// components/ScrapingSection.js
 import React from 'react';
-// Assuming Input and Button are from NextUI, not @heroui/react, based on previous context.
-// If you are using a different library, adjust the import path as needed.
 import { Input, Button } from "@heroui/react";
 
 

@@ -26,43 +26,41 @@ function LinkSelectionSection({ scrapedLinks, selectedUrls, handleSelectToggle, 
                 {scrapedLinks.length} Episodes Found!
             </p>
 
-
-
-            <div className="max-h-56 overflow-y-auto border-2 border-gray-300 rounded-2xl">
+            <div className="max-h-56 overflow-y-auto border-2 border-gray-100 rounded-2xl">
                 <AnimatePresence>
                     {scrapedLinks.map((video, index) => (
-                            <Checkbox
-                                isSelected={selectedUrls.includes(video.url)}
-                                onValueChange={() => handleSelectToggle(video.url)}
-                                size="md"
-                                radius="md"
-                                classNames={{
-                                    base: "inline-flex max-w-full p-6 overflow-hidden bg-content1 m-0 hover:bg-indigo-100 transition-colors duration-200",
-                                    wrapper: "mr-3 data-[selected=true]:before:bg-indigo-400 data-[selected=true]:after:text-white data-[hover=true]:before:bg-indigo-200",
-                                    icon: "text-white",
-                                    label: "flex-grow min-w-0"
-                                }}
-                            >
-                                <div className="flex flex-col flex-grow min-w-0 w-full">
-                                    <span className="text-gray-800 font-bold break-words pr-2">
-                                        {video.filename}
-                                    </span>
-                                    <span className="text-tiny text-gray-500 truncate block max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
-                                        {video.url}
-                                    </span>
-                                </div>
-                            </Checkbox>
-                      
+                        // ADD THE KEY PROP HERE!
+                        <Checkbox
+                            key={video.url} // <-- **PREFER THIS** if video.url is a stable unique identifier
+                            // OR, if you are absolutely sure the list never reorders, adds/removes from middle:
+                            // key={index} // <-- Use this if `video.url` cannot be guaranteed unique or stable
+                            isSelected={selectedUrls.includes(video.url)}
+                            onValueChange={() => handleSelectToggle(video.url)}
+                            size="md"
+                            radius="md"
+                            classNames={{
+                                base: "inline-flex max-w-full p-6 overflow-hidden bg-content1 m-0 hover:bg-indigo-100 transition-colors duration-200",
+                                wrapper: "mr-3 data-[selected=true]:before:bg-indigo-400 data-[selected=true]:after:text-white data-[hover=true]:before:bg-indigo-200",
+                                icon: "text-white",
+                                label: "flex-grow min-w-0"
+                            }}
+                        >
+                            <div className="flex flex-col flex-grow min-w-0 w-full">
+                                <span className="text-gray-800 font-bold break-words pr-2">
+                                    {video.filename}
+                                </span>
+                                <span className="text-tiny text-gray-500 truncate block max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
+                                    {video.url}
+                                </span>
+                            </div>
+                        </Checkbox>
                     ))}
                 </AnimatePresence>
             </div>
             <div className='flex mt-8 items-center justify-between'>
-
                 <div className="text-sm text-gray-600">
                     {selectedUrls.length} of {scrapedLinks.length} videos selected
                 </div>
-
-
                 <div className="flex gap-3">
                     <Button
                         onPress={handleSelectAll}

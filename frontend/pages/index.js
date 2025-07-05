@@ -1,30 +1,23 @@
-// pages/index.js
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-// HeroUI Tabs - Correct import
 import { Tabs, Tab } from '@heroui/react';
-
-// Sonner Toast
 import { toast } from "sonner";
-
-// Imported Modular Components
 import ScrapingSection from '@/components/scraper';
 import LinkSelectionSection from '@/components/links';
 import DownloadQueueSection from '@/components/downloads';
 import ProgressList from '@/components/progresslist';
+import FileBrowserPage from '@/components/files'; // New: Placeholder for embedding file browser
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
-const AVAILABLE_SUBDIRS = [ // This can eventually be fetched from backend or config
+const AVAILABLE_SUBDIRS = [
     "TV Shows",
     "Movies"
 ];
 
-// Framer Motion Variants (can be moved to a central config if used across many components)
 const sectionVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+    hidden: { opacity: 0, y: 10 }, // Added slight y offset for better transition feel
+    visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 20 } },
+    exit: { opacity: 0, y: -10, transition: { duration: 0.15 } } // Added exit animation
 };
 
 export default function Home() {
@@ -33,18 +26,16 @@ export default function Home() {
     const [downloadPath, setDownloadPath] = useState(AVAILABLE_SUBDIRS[0] || '');
     const [subfolderName, setSubfolderName] = useState('');
     const [selectedUrls, setSelectedUrls] = useState([]);
-    const [message, setMessage] = useState(''); // For scrape success/error message
+    const [message, setMessage] = useState(''); // For scrape success/error message (though replaced by toast now)
     const [downloadProgress, setDownloadProgress] = useState({});
     const [isLoadingScrape, setIsLoadingScrape] = useState(false);
     const [isLoadingDownload, setIsLoadingDownload] = useState(false);
     const [allDownloadsCompleted, setAllDownloadsCompleted] = useState(false);
 
-    const [activeTab, setActiveTab] = useState('queue'); // 'queue' or 'progress'
+    const [activeTab, setActiveTab] = useState('queue'); // 'queue' or 'progress' or 'files' or 'whisper'
 
     const clearedProgressUrls = useRef(new Set());
     const initialDownloadsQueued = useRef(0);
-
-    // --- Handlers (remain in parent as they manage shared state) ---
 
     const handleScrape = async () => {
         if (!scrapeUrl) {
@@ -57,7 +48,7 @@ export default function Home() {
         setIsLoadingScrape(true);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/scrape`, {
+            const response = await fetch(`/api/scrape`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: scrapeUrl }),
@@ -131,10 +122,14 @@ export default function Home() {
         for (const videoDetail of selectedVideoDetails) {
             const fullDownloadPath = subfolderName ? `${downloadPath}/${subfolderName}` : downloadPath;
             try {
-                const response = await fetch(`${API_BASE_URL}/download`, {
+                const response = await fetch(`/api/download`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: videoDetail.url, path: fullDownloadPath }),
+                    body: JSON.stringify({
+                        url: videoDetail.url,
+                        path: fullDownloadPath,
+                        title: videoDetail.filename // <--- ADD THIS LINE
+                    }),
                 });
                 if (response.ok) {
                     successfulQueues++;
@@ -177,7 +172,7 @@ export default function Home() {
 
         setSelectedUrls([]);
         setIsLoadingDownload(false);
-        setActiveTab('progress');
+        setActiveTab('progress'); // Switch to progress tab after queuing
     };
 
     const handleClearProgress = () => {
@@ -205,7 +200,7 @@ export default function Home() {
         let intervalId;
         const fetchProgress = async () => {
             try {
-                const response = await fetch(`${API_BASE_URL}/progress`);
+                const response = await fetch(`api/progress`);
                 if (response.ok) {
                     const data = await response.json();
                     const filteredData = {};
@@ -221,12 +216,24 @@ export default function Home() {
                     }
                     setDownloadProgress(filteredData);
 
-                    if (initialDownloadsQueued.current > 0 && completedCount === initialDownloadsQueued.current && !allDownloadsCompleted) {
-                        toast.success("All downloads/conversions are complete!", { title: "Tasks Finished" });
-                        setAllDownloadsCompleted(true);
-                        initialDownloadsQueued.current = 0;
-                    }
+                    // Check if all initially queued downloads are now completed/failed/skipped
+                    const currentlyTrackedQueued = Object.values(downloadProgress).filter(
+                        p => ['queued', 'downloading', 'converting'].includes(p.status)
+                    ).length;
 
+                    if (initialDownloadsQueued.current > 0 && currentlyTrackedQueued === 0 && !allDownloadsCompleted) {
+                        // This condition is tricky. A better check is if all 'initialDownloadsQueued' URLs
+                        // are now in a final state within 'downloadProgress'.
+                        const initialUrlsFinalized = Object.entries(downloadProgress).filter(([url, progress]) =>
+                            Array.from(selectedUrls).includes(url) && ['completed', 'converted', 'failed', 'skipped'].includes(progress.status)
+                        ).length;
+
+                        if (initialUrlsFinalized === initialDownloadsQueued.current) {
+                            toast.success("All downloads/conversions are complete!", { title: "Tasks Finished" });
+                            setAllDownloadsCompleted(true);
+                            initialDownloadsQueued.current = 0; // Reset for next batch
+                        }
+                    }
                 } else {
                     console.error('Failed to fetch progress:', response.statusText);
                 }
@@ -235,116 +242,108 @@ export default function Home() {
             }
         };
 
+        // Poll every 2 seconds
         intervalId = setInterval(fetchProgress, 2000);
-        return () => clearInterval(intervalId);
-    }, [allDownloadsCompleted]);
-
-   const renderTabContent = () => {
-    // Condition to render content based on activeTab
-    if (activeTab === 'queue') {
-        return (
-            <motion.div
-                key="queue-tab-content"
-                initial="hidden"
-                animate="visible"
-                exit="hidden"
-                variants={sectionVariants} // Ensure sectionVariants is defined in this scope
-            >
-                <div className="bg-white p-8 mt-6 rounded-3xl shadow-lg mb-8 border border-gray-200">
-                    <ScrapingSection
-                        scrapeUrl={scrapeUrl}
-                        setScrapeUrl={setScrapeUrl}
-                        handleScrape={handleScrape}
-                        isLoadingScrape={isLoadingScrape}
-                        message={message}
-                    />
-
-                    {/* --- Apply conditional rendering here --- */}
-                    {scrapedLinks.length > 0 && (
-                        <>
-                            <LinkSelectionSection
-                                scrapedLinks={scrapedLinks}
-                                selectedUrls={selectedUrls}
-                                handleSelectToggle={handleSelectToggle}
-                                handleSelectAll={handleSelectAll}
-                                handleDeselectAll={handleDeselectAll}
-                            />
-                            <DownloadQueueSection
-                                selectedUrls={selectedUrls}
-                                downloadPath={downloadPath}
-                                setDownloadPath={setDownloadPath}
-                                subfolderName={subfolderName}
-                                setSubfolderName={setSubfolderName}
-                                handleBatchDownload={handleBatchDownload}
-                                isLoadingDownload={isLoadingDownload}
-                            />
-                        </>
-                    )}
-                    {/* --- End conditional rendering --- */}
-                </div>
-            </motion.div>
-        );
-    } else if (activeTab === 'progress') {
-        return (
-            <ProgressList
-                downloadProgress={downloadProgress}
-                handleClearProgress={handleClearProgress}
-            />
-        );
-    } else if (activeTab === 'whisper') {
-        return (
-            <motion.div
-                key="whisper-tab-content"
-                initial="hidden"
-                animate="visible"
-                exit="hidden"
-                variants={sectionVariants}
-                className="bg-white p-8 rounded-xl shadow-lg mb-8 border border-gray-200 text-center text-gray-600 py-10"
-            >
-                Coming soon!
-            </motion.div>
-        );
-    }
-    // Fallback in case activeTab is neither, though with the Tabs component this shouldn't happen
-    return null;
-};
+        return () => clearInterval(intervalId); // Cleanup on component unmount
+    }, [initialDownloadsQueued, allDownloadsCompleted, downloadProgress]); // Depend on relevant states for re-run
 
     return (
         <div className="pt-24 p-10 max-w-4xl mx-auto font-sans text-gray-800">
-            <p className="text-5xl font-extrabold text-left mb-10">
+            <p className="text-5xl font-extrabold text-center mb-10">
                 Japanese Show Downloader
             </p>
+            <div className='flex  justify-center'>
+                <Tabs
+                    selectedKey={activeTab}
+                    onSelectionChange={setActiveTab}
+                    aria-label="Downloader options"
+                    size='lg'
+                    variant='bordered'
+                    color='primary'
+                    classNames={{
+                        cursor: "bg-indigo-400",
+                    }}
+                >
+                    <Tab key="queue" title="Queue Videos" />
+                    <Tab key="progress" title="Progress" />
+                    <Tab key="files" title="File Browser" />
+                </Tabs>
+            </div>
+
+            <AnimatePresence mode="wait">
+                {activeTab === 'queue' && (
+                    <motion.div
+                        key="queue-tab-content"
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit" // Use the exit variant
+                        variants={sectionVariants}
+                        className="bg-white p-8 mt-6 rounded-3xl shadow-lg mb-8 border border-gray-200"
+                    >
+                        <ScrapingSection
+                            scrapeUrl={scrapeUrl}
+                            setScrapeUrl={setScrapeUrl}
+                            handleScrape={handleScrape}
+                            isLoadingScrape={isLoadingScrape}
+                            message={message} // Consider if 'message' state is still needed with toasts
+                        />
+
+                        {scrapedLinks.length > 0 && (
+                            <>
+                                <LinkSelectionSection
+                                    scrapedLinks={scrapedLinks}
+                                    selectedUrls={selectedUrls}
+                                    handleSelectToggle={handleSelectToggle}
+                                    handleSelectAll={handleSelectAll}
+                                    handleDeselectAll={handleDeselectAll}
+                                />
+                                <DownloadQueueSection
+                                    selectedUrls={selectedUrls}
+                                    downloadPath={downloadPath}
+                                    setDownloadPath={setDownloadPath}
+                                    subfolderName={subfolderName}
+                                    setSubfolderName={setSubfolderName}
+                                    handleBatchDownload={handleBatchDownload}
+                                    isLoadingDownload={isLoadingDownload}
+                                    availableSubdirs={AVAILABLE_SUBDIRS} // Pass this down if used in DownloadQueueSection
+                                />
+                            </>
+                        )}
+                        {/* --- End conditional rendering --- */}
+                    </motion.div>
+                )}
+
+                {activeTab === 'progress' && (
+                    <motion.div
+                        key="progress-tab-content"
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit" // Use the exit variant
+                        variants={sectionVariants}
+                        className="bg-white p-8 mt-6 rounded-3xl shadow-lg mb-8 border border-gray-200" // Added common styling
+                    >
+                        <ProgressList
+                            downloadProgress={downloadProgress}
+                            handleClearProgress={handleClearProgress}
+                        />
+                    </motion.div>
+                )}
 
 
-            <Tabs
-                selectedKey={activeTab}
-                onSelectionChange={setActiveTab}
-                aria-label="Downloader options"
-                size='lg'
-                variant='bordered'
-                color='primary'
-                classNames={{
 
-                    cursor: "bg-indigo-400",
-
-                }}
-            >
-                <Tab key="queue" title="Queue Videos">
-                    <AnimatePresence mode="wait">
-                        {renderTabContent()}
-                    </AnimatePresence>
-                </Tab>
-                <Tab key="progress" title="Progress">
-                    <AnimatePresence mode="wait">
-                        {renderTabContent()}
-                    </AnimatePresence>
-                </Tab>
-                <Tab key="whisper" title="Whisper Subs">
-                    <AnimatePresence mode="wait">
-                        Coming soon!
-                    </AnimatePresence>
-                </Tab>
-            </Tabs>
+                {activeTab === 'files' && (
+                    <motion.div
+                        key="files-tab-content"
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit" // Use the exit variant
+                        variants={sectionVariants}
+                        className="bg-white p-8 mt-6 rounded-3xl shadow-lg mb-8 border border-gray-200" // Added common styling
+                    >
+                        <FileBrowserPage />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
