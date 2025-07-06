@@ -1,0 +1,12 @@
+# .gitignore
+
+# Ignore virtual environment directory
+venv/
+
+# You might also want to ignore other common Python-related files:
+__pycache__/
+*.pyc
+.env  # If you use a .env file for environment variables
+*.log # If you generate log files
+.pytest_cache/ # If using pytest
+.vscode/ # VS Code specific settings (optional, some people commit this)
