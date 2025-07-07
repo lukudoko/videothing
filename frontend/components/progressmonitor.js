@@ -1,7 +1,7 @@
 // components/ProgressMonitor.js
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Progress } from "@heroui/react"; // HeroUI Progress component
+import { Progress, Chip } from "@heroui/react"; // HeroUI Progress component
 
 const listItemVariants = {
     hidden: { opacity: 0, x: -20 },
@@ -10,97 +10,84 @@ const listItemVariants = {
 };
 
 function ProgressMonitor({ url, progress }) {
-    const isDownloadActive = progress.status === 'downloading';
+    const isDownloading = progress.status === 'downloading';
     const isConverting = progress.status === 'converting';
+    const isTranscribing = progress.status === 'transcribing'; // New
+    const isQueued = progress.status === 'queued'; // New
     const isFailed = progress.status === 'failed';
-    const isCompleted = progress.status === 'completed';
-    const isConverted = progress.status === 'converted';
+    const isFinalized = progress.status === 'completed'; // New
     const isSkipped = progress.status === 'skipped';
+    const mainProgressPercentage = progress.progress_percentage;
 
-    const mainProgressPercentage = isConverting ? progress.conversion_percentage : progress.progress_percentage;
 
     let statusClasses = '';
-    let progressColor = '';
     let textColorClass = '';
+    let barClass = '';
 
     if (isFailed) {
         statusClasses = 'border-red-300 bg-red-100';
-        progressColor = 'danger';
-        textColorClass = 'text-red-700';
-    } else if (isConverted) {
-        statusClasses = 'border-green-300 bg-green-100';
-        progressColor = 'success';
-        textColorClass = 'text-green-700';
+        textColorClass = 'text-red-700 capitalize';
+        barClass = 'bg-red-400';
+
+    } else if (isTranscribing) {
+        statusClasses = 'border-purple-300 bg-purple-100';
+        textColorClass = 'text-purple-700 capitalize';
+        barClass = 'bg-purple-400';
     } else if (isSkipped) {
         statusClasses = 'border-amber-300 bg-amber-100';
-        progressColor = 'warning';
-        textColorClass = 'text-amber-700';
-    } else if (isCompleted) {
-        statusClasses = 'border-green-300 bg-green-100';
-        progressColor = 'success';
-        textColorClass = 'text-green-700';
-    } else { // active, queued
+        textColorClass = 'text-amber-700 capitalize';
+        barClass = 'bg-amber-400';
+    } else if (isFinalized) {
+        statusClasses = 'border-teal-300 bg-teal-100';
+        textColorClass = 'text-teal-700 capitalize';
+        barClass = 'bg-teal-400';
+    } else if (isDownloading) {
+        statusClasses = 'border-blue-300 bg-blue-100';
+        textColorClass = 'text-blue-700 capitalize';
+        barClass = 'bg-blue-400';
+    }
+    else {
         statusClasses = 'border-indigo-300 bg-indigo-100';
-        progressColor = 'primary';
-        textColorClass = 'text-indigo-700';
+        textColorClass = 'text-indigo-700 capitalize';
+        barClass = 'bg-indigo-400';
     }
 
     const rawDisplayName = progress.filename || url.split('/').pop().split('?')[0];
     const displayName = decodeURIComponent(rawDisplayName);
     const trimmedUrl = url.length > 80 ? `${url.substring(0, 77)}...` : url;
- 
+
 
     return (
         <motion.li
-            className={`p-4 rounded-2xl shadow-sm ${statusClasses}`}
+            className={`p-4 rounded-3xl border-2 shadow-sm ${statusClasses}`}
             variants={listItemVariants}
             initial="hidden"
             animate="visible"
             exit="exit"
             layout
         >
-            <strong className="block mb-4 text-2xl font-bold text-gray-900 break-words">{displayName}</strong>
 
-            <div className="flex items-center justify-between mb-2">
-                <span className={`font-semibold text-base mb-2 ${textColorClass}`}>
-                    {progress.message}
-                </span>
-                {(isDownloadActive || isConverting) && (
-                    <svg
-                        className="animate-spin ml-2 h-5 w-5 text-current"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                    >
-                        <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                        ></circle>
-                        <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                    </svg>
-                )}
-            </div>
+            <p className="block mb-4 text-2xl font-bold text-gray-900 break-words">{displayName}</p>
 
-            {(isDownloadActive || isConverting || isCompleted || isConverted) && (
+            {(isDownloading || isConverting || isQueued || isTranscribing || isFinalized) && (
                 <>
                     <Progress
+                        isIndeterminate={isQueued}
+                        aria-label="Loading..."
                         value={mainProgressPercentage || 0}
-                        color={progressColor}
                         size="lg"
-                        className="mt-1"
-                        showValueLabel={false}
+                        classNames={{
+                            base: "mt-1",
+                            indicator: barClass,
+                            value: textColorClass,
+                            label: textColorClass,
+                        }}
+                        showValueLabel={true}
+                        label={progress.status}
                     />
                     <div className="flex w-full  text-xs text-gray-600 mt-2">
 
-                        {isDownloadActive && (
+                        {isDownloading && (
                             <div className='font-bold flex gap-4 justify-evenly'>
                                 <p>Speed: {progress.download_speed || 'N/A'}</p>
                                 <p>ETA: {progress.eta || 'N/A'}</p>
@@ -111,7 +98,7 @@ function ProgressMonitor({ url, progress }) {
                 </>
             )}
 
-            {(isCompleted || isConverted || isSkipped) && progress.output_path && (
+            {(isFinalized || isSkipped) && progress.output_path && (
                 <div className="mt-3 pt-2  text-xs text-gray-600">
                     <span className="font-medium">Output Path: </span>
                     <span className="break-all">{progress.output_path}</span>

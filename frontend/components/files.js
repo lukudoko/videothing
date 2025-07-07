@@ -1,6 +1,7 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
 import { toast } from "sonner";
 import {
   Table,
@@ -21,7 +22,6 @@ import {
   Tooltip,
   Breadcrumbs,
   BreadcrumbItem,
-  Spinner,
   Progress,
   Popover, PopoverTrigger, PopoverContent,
 } from "@heroui/react";
@@ -36,28 +36,22 @@ import {
   HiRefresh,
   HiSortAscending,
   HiSortDescending,
-  HiSearch, HiChatAlt 
+  HiSearch, HiChatAlt
 } from "react-icons/hi";
 
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-const FEEDBACK_TIMEOUT = 5000;
-const FILENAME_RULES = {
-  maxLength: 255,
-  forbiddenChars: /[\\/:"*?<>|]/g,
-  forbiddenNames: ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9']
-};
+
 const sanitizeFilename = (name, isRename = false) => {
   if (!name || typeof name !== 'string') return '';
 
   let sanitized = name.trim();
-  sanitized = sanitized.replace(FILENAME_RULES.forbiddenChars, '');
+  sanitized = sanitized.replace(filenamerules.forbiddenChars, '');
   sanitized = sanitized.replace(/\s+/g, ' ');
-  if (sanitized.length > FILENAME_RULES.maxLength) {
-    sanitized = sanitized.substring(0, FILENAME_RULES.maxLength);
+  if (sanitized.length > filenamerules.maxLength) {
+    sanitized = sanitized.substring(0, filenamerules.maxLength);
   }
   const upperName = sanitized.toUpperCase();
-  if (FILENAME_RULES.forbiddenNames.includes(upperName)) {
+  if (filenamerules.forbiddenNames.includes(upperName)) {
     sanitized = `${sanitized}_file`;
   }
 
@@ -101,19 +95,15 @@ const getFileIcon = (filename, isDirectory) => {
 };
 
 
-
-
-
-// Custom hooks
 const useFeedback = () => {
   const [feedback, setFeedback] = useState(null);
 
   const showFeedback = useCallback((type, message) => {
-    //setFeedback({ type, message });
+
     toast(message, {
       className: "bg-indigo-400 rounded-3xl"
     });
-    //  setTimeout(() => setFeedback(null), FEEDBACK_TIMEOUT);
+   
   }, []);
 
   const clearFeedback = useCallback(() => setFeedback(null), []);
@@ -146,7 +136,7 @@ const useApi = () => {
   return { apiCall, loading };
 };
 
-export default function FileBrowserPage() {
+export default function FileBrowserPage({ filenamerules, handleTranscription }) {
   const [currentPath, setCurrentPath] = useState('');
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -271,11 +261,8 @@ export default function FileBrowserPage() {
   );
 
 
-  const handleWhisperClick = useCallback((item) => {
-       setItemToSub(item);
-    onWhisperOpen();
-  }, [onWhisperOpen]
-  );
+
+
 
   const handleBreadcrumbClick = useCallback((index) => {
     if (index === 0) {
@@ -299,18 +286,21 @@ export default function FileBrowserPage() {
 
 
 
-const handleWhisper = useCallback(async () => {
-  console.log(currentPath)
-    console.log(itemToSub)
-    onWhisperClose();
-  }, [ onWhisperClose, ]);
-
-
-
-
-
-
+      const handleWhisper = useCallback(async () => {
+        await handleTranscription(itemToSub.path, itemToSub.name); 
+        onWhisperClose();
+    }, [onWhisperClose, currentPath, itemToSub, handleTranscription]);
   
+
+  const handleWhisperClick = useCallback((item) => {
+    setItemToSub(item);
+    onWhisperOpen();
+  }, [onWhisperOpen]);
+
+
+
+
+
   const handleCreateFolder = useCallback(async () => {
     const trimmedName = newFolderName.trim();
     if (!trimmedName) {
@@ -472,7 +462,7 @@ const handleWhisper = useCallback(async () => {
                   onPress={() => handleWhisperClick(item)}
                   isDisabled={loading}
                 >
-                  <HiChatAlt  className="w-4 text-indigo-400 h-4" />
+                  <HiChatAlt className="w-4 text-indigo-400 h-4" />
 
                 </Button>
               </Tooltip>
@@ -506,7 +496,7 @@ const handleWhisper = useCallback(async () => {
       default:
         return null;
     }
-  }, [loading, handleItemClick, handleRenameClick,handleWhisperClick, handleDeleteClick]);
+  }, [loading, handleItemClick, handleRenameClick, handleWhisperClick, handleDeleteClick]);
 
   return (
     <>
@@ -844,7 +834,7 @@ const handleWhisper = useCallback(async () => {
                   </Button>
                   <Button
                     color="primary"
-                    startContent={<HiChatAlt  className="w-4 h-4" />}
+                    startContent={<HiChatAlt className="w-4 h-4" />}
                     onPress={handleWhisper}
                     isDisabled={loading || !itemToSub?.name}
                   >

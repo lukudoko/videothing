@@ -3,13 +3,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button, Checkbox } from "@heroui/react";
 
-const sectionVariants = {
-    hidden: { opacity: 0, },
-    visible: { opacity: 1, transition: { duration: 1, ease: "easeOut" } },
-};
-
-
-function LinkSelectionSection({ scrapedLinks, selectedUrls, handleSelectToggle, handleSelectAll, handleDeselectAll }) {
+function LinkSelectionSection({ scrapedLinks, sectionVariants, selectedUrls, handleSelectToggle, handleSelectAll, handleDeselectAll }) {
     if (scrapedLinks.length === 0) {
         return null; // Don't render if no links are scraped
     }
@@ -29,11 +23,9 @@ function LinkSelectionSection({ scrapedLinks, selectedUrls, handleSelectToggle, 
             <div className="max-h-56 overflow-y-auto border-2 border-gray-100 rounded-2xl">
                 <AnimatePresence>
                     {scrapedLinks.map((video, index) => (
-                        // ADD THE KEY PROP HERE!
+
                         <Checkbox
-                            key={video.url} // <-- **PREFER THIS** if video.url is a stable unique identifier
-                            // OR, if you are absolutely sure the list never reorders, adds/removes from middle:
-                            // key={index} // <-- Use this if `video.url` cannot be guaranteed unique or stable
+                            key={video.url}
                             isSelected={selectedUrls.includes(video.url)}
                             onValueChange={() => handleSelectToggle(video.url)}
                             size="md"

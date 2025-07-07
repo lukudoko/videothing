@@ -1,12 +1,7 @@
 import React from 'react';
 import { Input, Button, Select, SelectItem } from "@heroui/react";
 
-const AVAILABLE_SUBDIRS = [
-    "TV Shows",
-    "Movies"
-];
-
-function DownloadQueueSection({ selectedUrls, downloadPath, setDownloadPath, subfolderName, setSubfolderName, handleBatchDownload, isLoadingDownload }) {
+function DownloadQueueSection({ selectedUrls, downloadPath, setDownloadPath, subfolderName, setSubfolderName, handleBatchDownload, availableSubdirs, isLoadingDownload }) {
     return (
         <div className="mt-8 pt-6 border-t-2 border-gray-100">
             <p className="text-2xl font-bold text-gray-800  pb-2">
@@ -40,7 +35,7 @@ function DownloadQueueSection({ selectedUrls, downloadPath, setDownloadPath, sub
                             selectorIcon: "text-indigo-400"
                         }}
                     >
-                        {AVAILABLE_SUBDIRS.map((dir) => (
+                        {availableSubdirs.map((dir) => (
                             <SelectItem key={dir} value={dir} textValue={dir}>
                                 {dir}
                             </SelectItem>
