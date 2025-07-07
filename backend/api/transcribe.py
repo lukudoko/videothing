@@ -2,14 +2,14 @@
 from fastapi import APIRouter, HTTPException
 import logging
 
-from backend.core.models import DownloadRequest # Re-using DownloadRequest for path/title
+from backend.core.models import TranscriptionRequest # Re-using DownloadRequest for path/title
 from backend.core.utils import resolve_and_validate_path
 from backend.queue_manager import queue_manager, TaskStatus # Import TaskStatus for clarity
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-class TranscribeRequest(DownloadRequest): # Inherit from DownloadRequest for path/title
+class TranscribeRequest(TranscriptionRequest): # Inherit from DownloadRequest for path/title
     """
     Request model for triggering transcription.
     Uses 'path' to specify the video file's location relative to BASE_DOWNLOAD_DIR.

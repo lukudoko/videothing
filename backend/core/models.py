@@ -10,6 +10,12 @@ class DownloadRequest(BaseModel):
     path: str # Target directory (relative to BASE_DOWNLOAD_DIR)
     title: str # Add title to the request
 
+
+class TranscriptionRequest(BaseModel):
+    path: str # Target directory (relative to BASE_DOWNLOAD_DIR)
+    title: str # Add title to the request
+
+
 class FileSystemItem(BaseModel):
     name: str
     is_directory: bool

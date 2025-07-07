@@ -10,6 +10,7 @@ from dataclasses import dataclass, asdict
 
 from backend.downloader import download_video
 from backend.converter import convert_video
+from backend.whisper_transcriber import transcribe_video_with_whisper
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class TaskStatus(Enum):
     DOWNLOAD_COMPLETED = "download_completed" # Renamed from DOWNLOAD_COMPLETE for consistency
     CONVERTING = "converting"
     TRANSCRIBING = "transcribing"
-    FINALIZED = "finalized" # New status: The item has completed *all* its intended processes
+    FINALIZED = "completed" # New status: The item has completed *all* its intended processes
     FAILED = "failed"
     SKIPPED = "skipped"
 
@@ -47,7 +48,7 @@ class TaskProgress:
 
 
 class QueueManager:
-    def __init__(self, max_download_workers: int = 1, max_conversion_workers: int = 4, max_transcription_workers: int = 2):
+    def __init__(self, max_download_workers: int = 1, max_conversion_workers: int = 3, max_transcription_workers: int = 1):
         self.downloads: Dict[str, TaskProgress] = {}
         self.downloads_lock = threading.Lock()
 
