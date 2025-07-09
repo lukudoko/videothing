@@ -1,9 +1,8 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {  FILENAME_RULES } from '@/constants/config';
-
-import { toast } from "sonner";
+import { FILENAME_RULES } from '@/constants/config';
+import { toast } from '@/lib/toast';
 import {
   Table,
   TableHeader,
@@ -101,10 +100,14 @@ const useFeedback = () => {
 
   const showFeedback = useCallback((type, message) => {
 
-    toast(message, {
-      className: "bg-indigo-400 rounded-3xl"
+    toast({
+      title: 'Item',
+      description: message,
+      // type: 'info', // This will apply green styling
+      icon: HiFolder, // A simple emoji icon
     });
-   
+
+
   }, []);
 
   const clearFeedback = useCallback(() => setFeedback(null), []);
@@ -287,11 +290,11 @@ export default function FileBrowserPage({ handleTranscription }) {
 
 
 
-      const handleWhisper = useCallback(async () => {
-        await handleTranscription(itemToSub.path, itemToSub.name); 
-        onWhisperClose();
-    }, [onWhisperClose, currentPath, itemToSub, handleTranscription]);
-  
+  const handleWhisper = useCallback(async () => {
+    await handleTranscription(itemToSub.path, itemToSub.name);
+    onWhisperClose();
+  }, [onWhisperClose, currentPath, itemToSub, handleTranscription]);
+
 
   const handleWhisperClick = useCallback((item) => {
     setItemToSub(item);
@@ -435,7 +438,7 @@ export default function FileBrowserPage({ handleTranscription }) {
       case "name":
         return (
           <div
-            className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+            className="flex items-center py-3 gap-2 cursor-pointer hover:text-primary transition-colors"
             onClick={() => handleItemClick(item)}
           >
             {getFileIcon(item.name, item.is_directory)}
@@ -514,20 +517,6 @@ export default function FileBrowserPage({ handleTranscription }) {
           <HiRefresh className="w-5 h-5" />
         </Button>
       </div>
-
-
-      {feedback && (
-        <Chip
-          color={feedback.type === 'success' ? 'success' : feedback.type === 'error' ? 'danger' : 'primary'}
-          variant="flat"
-          size="lg"
-          className="self-center"
-          onClose={clearFeedback}
-        >
-          {feedback.message}
-        </Chip>
-      )}
-
       <div className="flex justify-between mb-6">
         <div className="gap-2 items-center flex-row flex">
           {/* Outer container to control the space */}
@@ -535,8 +524,7 @@ export default function FileBrowserPage({ handleTranscription }) {
             initial={{ width: 0 }}
             animate={{ width: currentPath !== "" ? 40 : 0 }} // Animate outer div's width
             transition={{ type: "spring", stiffness: 100, damping: 20 }}
-          // Optional: If you want a slight delay before the space collapses
-          // exit={{ width: 0, transition: { delay: 0.1 } }}
+            exit={{ width: 0, transition: { delay: 0.1 } }}
           >
             <AnimatePresence>
               {currentPath !== "" && (
@@ -757,9 +745,9 @@ export default function FileBrowserPage({ handleTranscription }) {
                     Are you sure you want to delete <strong className="text-primary">{itemToDelete?.name}</strong>?
                   </p>
                   {itemToDelete?.is_directory && (
-                    <Chip color="danger" variant="flat">
+                    <p className='font-bold text-red-500'>
                       This will delete the folder and all its contents!
-                    </Chip>
+                    </p>
                   )}
                 </ModalBody>
                 <ModalFooter>

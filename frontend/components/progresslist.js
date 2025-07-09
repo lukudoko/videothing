@@ -9,32 +9,32 @@ function ProgressList({ downloadProgress, handleClearProgress }) {
 
     return (
         <>
-            <div className='flex gap-4 justify-between'>
-            <p className="text-3xl font-bold text-gray-800 mb-6 ">
-                Tasks
-            </p>
-            
-            {hasProgress && (
-                <div className="mb-4 text-right">
-                    <Button
-                        onPress={handleClearProgress}
-                        variant="bordered"
-                        size="sm"
-                        className="border-indigo-400 text-indigo-700 hover:text-red-400 hover:border-red-400"
-                    >
-                        Clear Completed
-                    </Button>
-                </div>
-            )}
+            <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 mb-6">
+                <p className="text-3xl font-bold text-gray-800 dark:text-white">
+                    Tasks
+                </p>
+
+                {hasProgress && (
+                    <div className="mb-4 md:mb-0"> {/* Remove bottom margin on medium+ screens */}
+                        <Button
+                            onPress={handleClearProgress}
+                            variant="bordered"
+                            size="sm"
+                            className="border-indigo-400 text-indigo-700 hover:text-red-400 hover:border-red-400 dark:border-indigo-400 dark:text-indigo-400 dark:hover:text-red-400 dark:hover:border-red-400"
+                        >
+                            Clear Completed
+                        </Button>
+                    </div>
+                )}
             </div>
-            
+
             <AnimatePresence>
                 {!hasProgress ? (
                     <motion.p
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="text-center text-gray-500 py-4"
+                        className="text-center text-gray-500 py-4 dark:text-gray-400"
                     >
                         No active or recent tasks :D
                     </motion.p>

@@ -1,4 +1,3 @@
-// Refactored main component
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tabs, Tab } from '@heroui/react';
@@ -12,6 +11,8 @@ import { useDownloadManager } from '@/hooks/useDownloadManager';
 import { batchDownload } from '@/utils/downloadService';
 import { initiateTranscription } from '@/utils/transcriptionService';
 import { AVAILABLE_SUBDIRS, FILENAME_RULES, sectionVariants } from '@/constants/config';
+import Head from 'next/head'
+
 
 export default function Home() {
     const [activeTab, setActiveTab] = useState('queue');
@@ -61,36 +62,43 @@ export default function Home() {
     };
 
 
-    const handleTranscription = async (filePath, fileName) => { 
-        const resultTab = await initiateTranscription(filePath, fileName); 
-        if (resultTab) { 
-            setActiveTab(resultTab); 
+    const handleTranscription = async (filePath, fileName) => {
+        const resultTab = await initiateTranscription(filePath, fileName);
+        if (resultTab) {
+            setActiveTab(resultTab);
         }
+
     };
 
 
-    
+
 
     return (
-        <div className="pt-24 p-10 max-w-4xl mx-auto font-sans text-gray-800">
-            <p className="text-5xl font-extrabold text-center mb-10">
+        <div className="pt-16 md:pt-24 p-4 md:p-10 max-w-4xl mx-auto font-sans text-gray-800">
+            <Head>
+                <title>Japanese Show Downloader</title>
+            </Head>
+            <p className="text-3xl md:text-5xl font-extrabold text-center mb-6 md:mb-10 px-2">
                 Japanese Show Downloader
             </p>
-            <div className='flex justify-center'>
+            <div className='flex justify-center mb-4'>
                 <Tabs
                     selectedKey={activeTab}
                     onSelectionChange={setActiveTab}
                     aria-label="Downloader options"
-                    size='lg'
+                    size='md'
                     variant='bordered'
                     color='primary'
+                    className="w-full max-w-md"
                     classNames={{
                         cursor: "bg-indigo-400",
+                        tabList: "w-full",
+                        tab: "flex-1 min-w-0", // Ensures tabs take equal width and handle overflow
                     }}
                 >
-                    <Tab key="queue" title="Queue Videos" />
+                    <Tab key="queue" title="Queue" />
                     <Tab key="progress" title="Progress" />
-                    <Tab key="files" title="File Browser" />
+                    <Tab key="files" title="Files" />
                 </Tabs>
             </div>
 
@@ -102,7 +110,7 @@ export default function Home() {
                         animate="visible"
                         exit="exit"
                         variants={sectionVariants}
-                        className="bg-white p-8 mt-6 rounded-3xl shadow-lg mb-8 border border-gray-200"
+                        className="bg-white p-4 md:p-8 mt-4 md:mt-6 rounded-2xl md:rounded-3xl shadow-lg mb-6 md:mb-8 border border-gray-200"
                     >
                         <ScrapingSection
                             scrapeUrl={scrapeUrl}
@@ -144,7 +152,7 @@ export default function Home() {
                         animate="visible"
                         exit="exit"
                         variants={sectionVariants}
-                        className="bg-white p-8 mt-6 rounded-3xl shadow-lg mb-8 border border-gray-200"
+                        className="bg-white p-4 md:p-8 mt-4 md:mt-6 rounded-2xl md:rounded-3xl shadow-lg mb-6 md:mb-8 border border-gray-200"
                     >
                         <ProgressList
                             downloadProgress={downloadProgress}
@@ -160,12 +168,12 @@ export default function Home() {
                         animate="visible"
                         exit="exit"
                         variants={sectionVariants}
-                        className="bg-white p-8 mt-6 rounded-3xl shadow-lg mb-8 border border-gray-200"
+                        className="bg-white p-4 md:p-8 mt-4 md:mt-6 rounded-2xl md:rounded-3xl shadow-lg mb-6 md:mb-8 border border-gray-200"
                     >
-                        <FileBrowserPage 
-                        filenamerules={FILENAME_RULES}
-                        handleTranscription={handleTranscription}
-                        sectionVariants={sectionVariants}
+                        <FileBrowserPage
+                            filenamerules={FILENAME_RULES}
+                            handleTranscription={handleTranscription}
+                            sectionVariants={sectionVariants}
                         />
                     </motion.div>
                 )}

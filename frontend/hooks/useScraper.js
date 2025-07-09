@@ -1,6 +1,8 @@
 // hooks/useScraper.js
 import { useState } from 'react';
-import { toast } from "sonner";
+import { toast } from '@/lib/toast';
+import { HiCheck, HiMinusCircle } from "react-icons/hi";
+
 
 export const useScraper = () => {
     const [scrapeUrl, setScrapeUrl] = useState('');
@@ -11,10 +13,17 @@ export const useScraper = () => {
 
     const handleScrape = async () => {
         if (!scrapeUrl) {
-            toast.warning("Please enter a URL to scrape.", { title: "Input Required" });
+            toast({
+                title: 'URL Required',
+                description: result.message || "Please enter a URL to scrape!",
+                type: 'warning', // This will apply green styling
+                icon: HiMinusCircle, // A simple emoji icon
+            });
+
+
             return;
         }
-        
+
         setMessage('');
         setScrapedLinks([]);
         setSelectedUrls([]);
@@ -34,12 +43,33 @@ export const useScraper = () => {
                     filename: video.filename || video.url.split('/').pop().split('?')[0]
                 }));
                 setScrapedLinks(videosWithFilenames || []);
-                toast.success(`Scraped ${videosWithFilenames.length} links.`, { title: "Scrape Successful" });
+                toast({
+                    title: 'Scrape Successful!',
+                    description: data.message || `Found ${videosWithFilenames.length} episodes.`,
+                    type: 'success',
+                    icon: HiCheck,
+                });
+
+
             } else {
-                toast.error(`Error scraping: ${data.detail || 'Unknown error'}`, { title: "Scrape Error" });
+                toast({
+                    title: 'Scrape Error',
+                    description: `Error scraping: ${data.detail || 'Unknown error'}`,
+                    type: 'warning', // This will apply green styling
+                    icon: HiMinusCircle, // A simple emoji icon
+                });
+
             }
         } catch (error) {
-            toast.error(`Could not connect to backend: ${error.message}`, { title: "Network Error" });
+
+            toast({
+                title: 'Network Error',
+                description: `Could not connect to backend: ${error.message}`,
+                type: 'warning', // This will apply green styling
+                icon: HiMinusCircle, // A simple emoji icon
+            });
+
+
         } finally {
             setIsLoadingScrape(false);
         }

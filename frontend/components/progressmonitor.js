@@ -1,7 +1,7 @@
 // components/ProgressMonitor.js
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Progress, Chip } from "@heroui/react"; // HeroUI Progress component
+import { Progress } from "@heroui/react"; // HeroUI Progress component
 
 const listItemVariants = {
     hidden: { opacity: 0, x: -20 },
@@ -13,10 +13,10 @@ function ProgressMonitor({ url, progress }) {
     const isDownloading = progress.status === 'downloading';
     const isConverting = progress.status === 'converting';
     const isTranscribing = progress.status === 'transcribing'; // New
-    const isQueued = progress.status === 'queued'; // New
+    const isQueued = progress.status === 'queued' || progress.status === 'download_completed';
     const isFailed = progress.status === 'failed';
-    const isFinalized = progress.status === 'completed'; // New
-    const isSkipped = progress.status === 'skipped';
+    const isFinalized = progress.status === 'completed' || progress.status === 'skipped'; // New
+    const isSkipped = progress.status === 'wamng';
     const mainProgressPercentage = progress.progress_percentage;
 
 
@@ -83,8 +83,12 @@ function ProgressMonitor({ url, progress }) {
                             label: textColorClass,
                         }}
                         showValueLabel={true}
-                        label={progress.status}
-                    />
+                        label={
+                            progress.status
+                                .split('_') // Split the string by underscores (e.g., "download_completed" -> ["download", "completed"])
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Capitalize each word (e.g., "download" -> "Download")
+                                .join(' ') // Join the words back with spaces (e.g., ["Download", "Completed"] -> "Download Completed")
+                        } />
                     <div className="flex w-full  text-xs text-gray-600 mt-2">
 
                         {isDownloading && (

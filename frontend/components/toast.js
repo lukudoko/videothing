@@ -1,76 +1,79 @@
-// components/ui/custom-toast.jsx
-'use client'; // This directive is important for Next.js Client Components
+// components/ToastComponent.js
+'use client';
 
 import React from 'react';
-import { toast as sonnerToast } from 'sonner';
+import { toast as sonnerToast } from 'sonner'; // Still needed for toast.dismiss(id) if you dismiss programmatically
 
 /**
- * Your custom Toast React component.
- * This is where you apply all your Tailwind CSS styling.
- *
- * @param {object} props
- * @param {string | number} [props.id] - The ID provided by Sonner for dismissal.
- * @param {string} props.message - The main message for the toast.
- * @param {object} [props.actionButton] - Optional action button details.
- * @param {string} props.actionButton.label - Label for the action button.
- * @param {function} props.actionButton.onClick - Click handler for the action button.
+ * A fully custom toast component that still maintains Sonner's animations and interactions.
+ * @param {Object} props - The props for the Toast component.
+ * @param {string|number} props.id - The unique ID of the toast, provided by Sonner (for dismiss).
+ * @param {string} props.title - The title of the toast.
+ * @param {string} props.description - The description text of the toast.
+ * @param {'success'|'error'|'warning'|'info'|'default'} [props.type='default'] - The type of toast to style its appearance.
+ * @param {string|React.ComponentType<any>} [props.icon] - An icon (emoji string or React component) to display.
  */
-function CustomToast({ id, message, actionButton }) {
+function ToastComponent(props) {
+  // Destructure props. Note: 'button' is removed.
+  const { title, description, id, type = 'default', icon: IconComponent } = props;
+
+  // Define Tailwind classes based on the toast type
+  const typeClasses = {
+    success: {
+      accent: 'border-l-4 border-teal-400',
+      title: 'text-teal-800',
+      description: 'text-teal-700',
+      iconColor: 'text-teal-400',
+    },
+    error: {
+      accent: 'border-l-4 border-red-500',
+      title: 'text-red-800 dark:text-red-300',
+      description: 'text-red-600 dark:text-red-400',
+      iconColor: 'text-red-500',
+    },
+    warning: {
+      accent: 'border-l-4 border-yellow-500',
+      title: 'text-yellow-800 dark:text-yellow-300',
+      description: 'text-yellow-600 dark:text-yellow-400',
+      iconColor: 'text-yellow-500',
+    },
+    info: {
+      accent: 'border-l-4 border-blue-500',
+      title: 'text-blue-800 dark:text-blue-300',
+      description: 'text-blue-600 dark:text-blue-400',
+      iconColor: 'text-blue-500',
+    },
+    default: { // Used for 'action' or general toasts
+      accent: 'border-l-4 border-indigo-400',
+      title: 'text-indigo-800',
+      description: 'text-indigo-500',
+      iconColor: 'text-indigo-400 dark:text-gray-400',
+    },
+  };
+
+  const currentTypeClasses = typeClasses[type] || typeClasses.default;
+
   return (
-    // This div is the main container for your custom toast.
-    // Apply your desired styling here.
-    <div className="flex items-center justify-between rounded-lg bg-indigo-400 text-white shadow-lg p-4 w-full md:max-w-[364px]">
-      <div className="flex-1">
-        <p className="text-sm font-medium">{message}</p>
-      </div>
-      {actionButton && (
-        <div className="ml-4 flex-shrink-0">
-          <button
-            className="rounded-md bg-indigo-500 hover:bg-indigo-600 px-3 py-1 text-sm font-semibold text-white focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none"
-            onClick={() => {
-              actionButton.onClick();
-              if (id) {
-                sonnerToast.dismiss(id); // Dismiss the toast when the action button is clicked
-              }
-            }}
-          >
-            {actionButton.label}
-          </button>
+    <div className={`flex rounded-2xl bg-white  shadow-lg ring-1 ring-black/5 dark:ring-white/5 w-full min-w-sm md:max-w-[364px] items-center p-4 ${currentTypeClasses.accent}`}>
+      {IconComponent && ( // Conditionally render icon if provided
+        <div className={`mr-3 flex-shrink-0 ${currentTypeClasses.iconColor}`}>
+          {typeof IconComponent === 'string' ? (
+            // If icon is a string (e.g., emoji)
+            <span className="text-xl leading-none">{IconComponent}</span>
+          ) : (
+            // If icon is a React component (e.g., Heroicon)
+            <IconComponent className="h-6 w-6" aria-hidden="true" />
+          )}
         </div>
       )}
-      {/* Optional: Add a close button if desired */}
-      {/* <button
-        className="ml-2 p-1 rounded-full text-white/70 hover:text-white"
-        onClick={() => { if (id) sonnerToast.dismiss(id); }}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button> */}
+      {/* This div now takes all available space for title and description */}
+      <div className="flex-1">
+        <p className={`text-base font-medium ${currentTypeClasses.title}`}>{title}</p>
+        <p className={`mt-1 text-sm ${currentTypeClasses.description}`}>{description}</p>
+      </div>
+      {/* The button section is removed entirely */}
     </div>
   );
 }
 
-/**
- * Abstracted toast function for easier use.
- * This function will call Sonner's custom toast method with your component.
- *
- * @param {object} toastProps - Properties for your custom toast.
- * @param {string} toastProps.message - The main message.
- * @param {object} [toastProps.actionButton] - Optional action button details.
- * @param {string} toastProps.actionButton.label - Label for the action button.
- * @param {function} toastProps.actionButton.onClick - Click handler.
- */
-export function showCustomToast(toastProps) {
-  return sonnerToast.custom((id) => (
-    <CustomToast
-      id={id} // Sonner provides the ID, pass it to your component if needed for dismissal
-      message={toastProps.message}
-      actionButton={toastProps.actionButton}
-      // Pass any other props you define in CustomToast
-    />
-  ));
-}
-
-// Optional: Export the component itself if you ever need to render it directly
-// export { CustomToast };
+export default ToastComponent;

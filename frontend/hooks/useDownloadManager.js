@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { toast } from "sonner";
+import { toast } from '@/lib/toast';
+import { HiCheck, HiMinusCircle } from "react-icons/hi";
 
 export const useDownloadManager = () => {
     const [downloadProgress, setDownloadProgress] = useState({});
@@ -13,13 +14,13 @@ export const useDownloadManager = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
-            
+
             if (!response.ok) {
                 throw new Error('Failed to clear progress on server');
             }
-            
+
             const result = await response.json();
-            
+
             setDownloadProgress(prev => {
                 const filtered = {};
                 for (const url in prev) {
@@ -30,16 +31,25 @@ export const useDownloadManager = () => {
                 }
                 return filtered;
             });
-            
+
             clearedProgressUrls.current = new Set();
-            toast.info(result.message || "Completed and failed tasks have been removed from the list.", { 
-                title: "Progress Cleared" 
+
+
+            toast({
+                title: 'Progress Cleared!',
+                description: result.message || "Completed and failed tasks have been removed from the list.",
+                type: 'success', 
+                icon: HiCheck, 
             });
-            
+
+
         } catch (error) {
             console.error('Error clearing progress:', error);
-            toast.error("Failed to clear progress. Please try again.", { 
-                title: "Error" 
+            toast({
+                title: 'Error!',
+                description: "Failed to clear progress. Please try again.",
+                type: 'error', // This will apply green styling
+                icon: HiMinusCircle, // A simple emoji icon
             });
         }
     };
@@ -66,7 +76,13 @@ export const useDownloadManager = () => {
                     ).length;
 
                     if (initialDownloadsQueued.current > 0 && currentlyTrackedQueued === 0 && !allDownloadsCompleted) {
-                        toast.success("All downloads/conversions are complete!", { title: "Tasks Finished" });
+
+                        toast({
+                            title: 'Tasks Finished',
+                            description:  "All downloads are complete!",
+                            type: 'success', // This will apply green styling
+                            icon: HiCheck, // A simple emoji icon
+                        });
                         setAllDownloadsCompleted(true);
                         initialDownloadsQueued.current = 0;
                     }

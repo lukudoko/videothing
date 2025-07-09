@@ -1,5 +1,6 @@
-// frontend/utils/transcriptionService.js
-import { toast } from "sonner";
+import { toast } from '@/lib/toast'; // Your custom toast
+import { HiCheck, HiMinusCircle, HiInformationCircle } from "react-icons/hi"; // Added HiInformationCircle
+
 
 export const initiateTranscription = async (relativeFilePath, fileName) => {
     if (!relativeFilePath || !fileName) {
@@ -24,18 +25,35 @@ export const initiateTranscription = async (relativeFilePath, fileName) => {
         if (response.ok) {
             const result = await response.json();
             console.log("Transcription initiation successful:", result);
-            toast.success(`Transcription for ${fileName} successfully queued!`, { title: "Queued!" });
-            return 'progress'; 
+
+            toast({
+                title: "Queued!",
+                description: `Successfully queued ${fileName} for transcription!.`,
+                type: 'success',
+                icon: HiCheck,
+            });
+
+            return 'progress';
         } else {
             const errorData = await response.json();
             const errorMessage = errorData.detail || `Server error: ${response.status} - ${response.statusText}`;
             console.error(`Failed to queue transcription for ${fileName}:`, errorMessage);
-            toast.error(`Failed to queue ${fileName}: ${errorMessage}`, { title: "Queue Failed" });
+            toast({
+                title: "Queue Failed",
+                description: `Failed to queue ${fileName}: ${error.message}`,
+                type: 'error',
+                icon: HiMinusCircle,
+            });
             return null;
         }
     } catch (error) {
         console.error(`Network error queuing transcription for ${fileName}:`, error.message);
-        toast.error(`Network error queuing ${fileName}: ${error.message}`, { title: "Network Error" });
+        toast({
+            title: "Network Error",
+            description: `Network error queuing ${fileName}: ${error.message}`,
+            type: 'error',
+            icon: HiMinusCircle,
+        });
         return null;
     }
 };
