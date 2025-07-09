@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 import logging
 
 # Import models, config, and utils from the new core location
-from backend.core.models import FileSystemItem, CreateFolderRequest, DeleteItemRequest
+from backend.core.models import FileSystemItem, CreateFolderRequest, DeleteItemRequest, MoveRenameRequest
 from backend.core.utils import resolve_and_validate_path
 from backend.core.config import BASE_DOWNLOAD_DIR # Also used here for relative_to
 
@@ -119,3 +119,29 @@ async def delete_item(req: DeleteItemRequest):
     except Exception as e:
         logging.exception(f"Unexpected error deleting item {req.item_path}:")
         raise HTTPException(status_code=500, detail=f"Failed to delete item: {e}")
+
+
+
+
+@router.post("/filesystems/move")
+async def move_item(req: MoveRenameRequest):
+    try:
+        source_abs_path = resolve_and_validate_path(req.source_path)
+        destination_abs_path = resolve_and_validate_path(req.destination_path)
+
+        if not source_abs_path.exists():
+            raise HTTPException(status_code=404, detail="Source item not found.")
+        if destination_abs_path.exists():
+            raise HTTPException(status_code=409, detail="Destination path already exists.")
+
+        shutil.move(str(source_abs_path), str(destination_abs_path))
+        logging.info(f"Moved/Renamed {source_abs_path} to {destination_abs_path}")
+        return {"status": "success", "message": "Item moved/renamed successfully."}
+    except HTTPException:
+        raise
+    except PermissionError:
+        logging.error(f"Permission denied to move {req.source_path} to {req.destination_path}")
+        raise HTTPException(status_code=403, detail="Permission denied to perform this operation.")
+    except Exception as e:
+        logging.exception(f"Error moving item from {req.source_path} to {req.destination_path}:")
+        raise HTTPException(status_code=500, detail=f"Failed to move item: {e}")

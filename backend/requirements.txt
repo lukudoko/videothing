@@ -5,5 +5,5 @@ requests
 tqdm
 openai-whisper
 torch
-torchvision   # <--- Don't forget this one!
+torchvision
 torchaudio

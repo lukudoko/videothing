@@ -1,6 +1,7 @@
 'use client';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {  FILENAME_RULES } from '@/constants/config';
 
 import { toast } from "sonner";
 import {
@@ -45,13 +46,13 @@ const sanitizeFilename = (name, isRename = false) => {
   if (!name || typeof name !== 'string') return '';
 
   let sanitized = name.trim();
-  sanitized = sanitized.replace(filenamerules.forbiddenChars, '');
+  sanitized = sanitized.replace(FILENAME_RULES.forbiddenChars, '');
   sanitized = sanitized.replace(/\s+/g, ' ');
-  if (sanitized.length > filenamerules.maxLength) {
-    sanitized = sanitized.substring(0, filenamerules.maxLength);
+  if (sanitized.length > FILENAME_RULES.maxLength) {
+    sanitized = sanitized.substring(0, FILENAME_RULES.maxLength);
   }
   const upperName = sanitized.toUpperCase();
-  if (filenamerules.forbiddenNames.includes(upperName)) {
+  if (FILENAME_RULES.forbiddenNames.includes(upperName)) {
     sanitized = `${sanitized}_file`;
   }
 
@@ -136,7 +137,7 @@ const useApi = () => {
   return { apiCall, loading };
 };
 
-export default function FileBrowserPage({ filenamerules, handleTranscription }) {
+export default function FileBrowserPage({ handleTranscription }) {
   const [currentPath, setCurrentPath] = useState('');
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);

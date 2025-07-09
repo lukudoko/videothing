@@ -26,7 +26,7 @@ services:
         GROUP_ID: ${GROUP_ID:-1000}
     container_name: python-backend
     ports:
-      - "8005:8005" # Keep this if you want to access the backend directly from your host for debugging/testing
+     - "8005:8005" # Keep this if you want to access the backend directly from your host for debugging/testing
     volumes:
       - /mnt/drive/Media:/app/downloads_root # Ensure this is where your app expects to write
     environment:

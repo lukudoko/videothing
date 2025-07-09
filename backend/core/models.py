@@ -23,7 +23,9 @@ class FileSystemItem(BaseModel):
     last_modified: Optional[float] = None
     path: str
 
-# Removed MoveRenameRequest as per your request
+class MoveRenameRequest(BaseModel):
+    source_path: str
+    destination_path: str
 
 class CreateFolderRequest(BaseModel):
     new_folder_path: str

@@ -1,16 +1,29 @@
-# Use NVIDIA's runtime image
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+# --- Stage 1: Builder (with CUDA Devel Toolkit) ---
+# Use the CUDA 12.8.0 devel image for building and JIT compilation
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS builder
 
-# Install system dependencies
+# Set environment variables for non-interactive apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED 1
+
+# Install system dependencies for build time
 RUN apt-get update && apt-get install -y \
     wget \
     xz-utils \
     python3.10 \
     python3.10-dev \
     python3-pip \
-    libnvidia-encode-515 \
-    libnvidia-decode-515 \
+    build-essential \
+    git \
+    libsndfile1 \
+    python3.10-venv \
+    # Add libgomp1 which can be a dependency for PyTorch on some systems
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
+
+# Set up Python 3.10 as default alternatives (good practice)
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+RUN update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # Download and install FFmpeg with guaranteed NVENC support
 RUN cd /tmp && \
@@ -21,12 +34,65 @@ RUN cd /tmp && \
     chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe && \
     rm -rf ffmpeg-master-latest-linux64-gpl*
 
-# Set up Python 3.10 as default
+# Create a user with the same UID/GID as your host user
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+RUN groupadd -g $GROUP_ID appuser && \
+    useradd -u $USER_ID -g $GROUP_ID -m -s /bin/bash appuser
+
+# Set working directory for app
+WORKDIR /app
+
+ENV TORCH_CUDA_ARCH_LIST="6.1"
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir \
+    numpy==1.26.4 && \
+    # Now install PyTorch and its related packages
+    pip install --no-cache-dir \
+    torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu118 && \
+    # Install openai-whisper AFTER torch
+    pip install --no-cache-dir \
+    openai-whisper \
+    # Install other dependencies (keep them separate if their numpy dependencies might conflict)
+    fastapi uvicorn beautifulsoup4 requests tqdm python-multipart
+
+# --- Pre-download the Whisper 'small' model ---
+USER root
+RUN python3 -c "import whisper; whisper.load_model('small')"
+USER appuser
+
+# Copy application code and change ownership
+COPY --chown=appuser:appuser backend/ ./backend/
+
+# --- Verify NVENC encoders are available (optional, for debugging build) ---
+USER root
+RUN echo "=== FFmpeg Version ===" && \
+    ffmpeg -version && \
+    echo "=== Available NVENC Encoders ===" && \
+    ffmpeg -encoders 2>/dev/null | grep nvenc
+USER appuser
+
+# --- Stage 2: Runner (smaller image for deployment) ---
+# Use the CUDA 12.8.0 runtime image
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04 AS runner
+
+ENV PYTHONUNBUFFERED 1
+ENV DEBIAN_FRONTEND noninteractive
+
+# Install system dependencies needed at runtime INCLUDING PYTHON
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    ffmpeg \
+    libsndfile1 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up Python 3.10 as default alternatives in runner stage too
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 RUN update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
-# Create a user with the same UID/GID as your host user
-# You'll need to replace 1000:1000 with your actual user's UID:GID
+# Create the appuser again for the runtime image
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 RUN groupadd -g $GROUP_ID appuser && \
@@ -35,13 +101,21 @@ RUN groupadd -g $GROUP_ID appuser && \
 # Set working directory
 WORKDIR /app
 
-# Copy and install Python requirements
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy the Python environment and downloaded Whisper model from the builder stage
+# Adjust paths if your `pip` installs elsewhere (check `python3 -c "import site; print(site.getsitepackages())"` in builder)
+COPY --from=builder /usr/local/lib/python3.10/dist-packages /usr/local/lib/python3.10/dist-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code and change ownership
-COPY backend/ .
-RUN chown -R appuser:appuser /app
+# Copy the pre-downloaded Whisper model cache AND set ownership for it
+# The /home/appuser/.cache directory needs to be writable by appuser
+# You might need to create the .cache directory first if it doesn't exist
+# or copy directly to a new path that appuser owns.
+# Let's ensure the target directory for the cache is owned by appuser.
+RUN mkdir -p /home/appuser/.cache/whisper && chown -R appuser:appuser /home/appuser/.cache
+COPY --from=builder /root/.cache/whisper /home/appuser/.cache/whisper
+
+# Copy your application code and set ownership for it in the runner stage as well
+COPY --chown=appuser:appuser backend/ ./backend/
 
 # Switch to non-root user
 USER appuser
@@ -49,14 +123,5 @@ USER appuser
 # Expose port
 EXPOSE 8005
 
-# Verify NVENC encoders are available (run as root for this check)
-USER root
-RUN echo "=== FFmpeg Version ===" && \
-    ffmpeg -version && \
-    echo "=== Available NVENC Encoders ===" && \
-    ffmpeg -encoders 2>/dev/null | grep nvenc
-
-# Switch back to appuser for runtime
-USER appuser
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]
+# Command to run your FastAPI application
+CMD ["/usr/bin/python3.10", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8005"]

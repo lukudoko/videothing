@@ -3,25 +3,16 @@ import os
 import time
 import logging
 from typing import Callable, Dict, Any, Optional
+import gc # Import garbage collection module
 
 # --- BEGIN WHISPER INTEGRATION ---
-# You will need to install the whisper library:
-# pip install -U openai-whisper
-# You will also need PyTorch and torchaudio. For CUDA support,
-# INSTALL TORCH AND TORCHAUDIO WITH CUDA ACCORDING TO PYTORCH'S WEBSITE:
-# Example for CUDA 11.8: pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu118
-# (Check your CUDA version and PyTorch's website for the exact command)
-# Ensure ffmpeg is installed on your system (Whisper uses it for audio extraction)
-
 import whisper
-import torch # Used to check for CUDA availability
-import datetime # Used for formatting SRT timestamps
+import torch
+import datetime
 
 logger = logging.getLogger(__name__)
 
 # Global variable to store the loaded Whisper model.
-# This ensures the model is loaded only once when the backend starts,
-# rather than for every transcription request, saving a lot of time.
 _whisper_model = None
 _model_name = "small" # As requested by you
 _device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -43,6 +34,27 @@ def _load_whisper_model():
             logger.error(f"Failed to load Whisper model '{_model_name}': {e}", exc_info=True)
             raise RuntimeError(f"Whisper model loading failed: {e}. Check your PyTorch/CUDA/Whisper installation.") from e
     return _whisper_model
+
+def unload_whisper_model():
+    """
+    Explicitly unloads the Whisper model from memory (including GPU VRAM)
+    and clears the CUDA cache. Call this when the model is no longer needed.
+    """
+    global _whisper_model
+    if _whisper_model is not None:
+        logger.info(f"Unloading Whisper model '{_model_name}' from {_device} to free up resources.")
+        try:
+            del _whisper_model
+            _whisper_model = None
+            if _device == "cuda":
+                torch.cuda.empty_cache() # Clear CUDA memory cache
+            gc.collect() # Trigger Python garbage collection
+            logger.info("Whisper model unloaded and resources released.")
+        except Exception as e:
+            logger.error(f"Error during Whisper model unloading: {e}", exc_info=True)
+    else:
+        logger.info("Whisper model is already unloaded.")
+
 
 def _format_timestamp_srt(seconds: float) -> str:
     """Formats a float of seconds into an SRT timestamp string."""
@@ -68,7 +80,8 @@ def _write_srt(segments: list, output_filepath: str):
 
 def transcribe_video_with_whisper(
     video_filepath: str,
-    progress_callback: Callable[[float], None]
+    progress_callback: Callable[[float], None],
+    initial_prompt: Optional[str] = None # New optional parameter for prompt
 ) -> Dict[str, Any]:
     """
     Transcribes a video file using the Whisper model.
@@ -77,6 +90,7 @@ def transcribe_video_with_whisper(
         video_filepath (str): The path to the video file to transcribe.
         progress_callback (Callable[[float], None]): A callback function
                                                      to report transcription progress (0-100).
+        initial_prompt (Optional[str]): An optional text prompt to guide the transcription.
 
     Returns:
         Dict[str, Any]: A dictionary with 'status' (success/failed) and 'message',
@@ -87,26 +101,38 @@ def transcribe_video_with_whisper(
 
     try:
         # Load the model (will load once, then retrieve cached version)
+        # Check if model is already loaded before attempting to load
+        if _whisper_model is None:
+            progress_callback(5) # Report progress as model loading starts
         model = _load_whisper_model()
-        progress_callback(10) # Progress after model loading (approx. 10%)
+        progress_callback(15) # Progress after model loading (or retrieval)
 
         # Ensure the video file exists before proceeding
         if not os.path.exists(video_filepath):
             raise FileNotFoundError(f"Video file not found: {video_filepath}")
 
         logger.info(f"Transcribing '{video_filepath}' using Whisper on {_device}...")
+        progress_callback(20) # Audio processing/transcription started
 
-        # Perform transcription
-        # Whisper automatically handles audio extraction using ffmpeg
-        # We specify language="ja" for Japanese and task="transcribe" (default, but explicit)
+        # Perform transcription with refined parameters
+        # - language="ja": Explicitly set to Japanese
+        # - task="transcribe": (Default, but explicit)
+        # - fp16=_device == "cuda": Use half-precision if CUDA is available for speed/VRAM
+        # - condition_on_previous_text=False: Each segment is independent for better handling of chaotic audio
+        # - word_timestamps=True: Enable word-level timestamps for more flexible SRT generation
+        # - initial_prompt: Pass the optional prompt
         result = model.transcribe(
             video_filepath,
             language="ja",
             task="transcribe",
+            fp16=(_device == "cuda"), # Use FP16 only if on CUDA
+            condition_on_previous_text=False, # Disable conditioning for independent segments
+            word_timestamps=True, # Enable word-level timestamps
+            #initial_prompt=initial_prompt, # Pass optional prompt
             verbose=False # Suppress Whisper's verbose console output
         )
 
-        progress_callback(90) # Progress before writing SRT (approx. 90%)
+        progress_callback(85) # Progress before writing SRT (approx. 85%)
 
         # Extract segments and write to SRT file
         srt_filepath = f"{os.path.splitext(video_filepath)[0]}.srt"

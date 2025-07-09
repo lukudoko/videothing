@@ -10,7 +10,7 @@ export const initiateTranscription = async (relativeFilePath, fileName) => {
     toast.info(`Requesting transcription for ${fileName}...`, { title: "Transcription Queued" });
 
     try {
-        const response = await fetch('http://localhost:8005/api/transcribe', {
+        const response = await fetch('/api/transcribe', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
