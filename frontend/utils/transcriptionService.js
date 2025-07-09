@@ -8,8 +8,6 @@ export const initiateTranscription = async (relativeFilePath, fileName) => {
         return null; // Return null for missing data
     }
 
-    toast.info(`Requesting transcription for ${fileName}...`, { title: "Transcription Queued" });
-
     try {
         const response = await fetch('/api/transcribe', {
             method: 'POST',
