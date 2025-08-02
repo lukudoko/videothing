@@ -1,45 +1,56 @@
 # Stage 1: Build the Next.js application
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Declare a build argument for the API base URL
-# This ARG will receive its value from docker-compose.yml
+# Declare build arguments
 ARG NEXT_PUBLIC_API_BASE_URL_BUILD
+ARG NEXT_PUBLIC_BACKEND_URL
 
-# Set the environment variable that Next.js expects from the build argument's value.
-# This makes it available during the 'npm run build' step for Next.js.
+# Set environment variables for build
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL_BUILD
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy package.json and package-lock.json (npm's lock file)
+# Copy package files
 COPY frontend/package.json frontend/package-lock.json* ./
 
-# Install dependencies using npm
-RUN npm install --legacy-peer-deps
+# Install dependencies
+RUN npm ci --legacy-peer-deps
 
-# Copy the rest of the frontend code
+# Copy source code
 COPY frontend/ .
 
-# Build the Next.js app using npm
+# Build the application
 RUN npm run build
 
-# Stage 2: Run the Next.js application
+# Stage 2: Production runtime
 FROM node:20-alpine AS runner
-
 WORKDIR /app
 
-# Install only production dependencies using npm
-COPY --from=builder /app/package.json /app/package-lock.json* ./
-RUN npm install --production --ignore-scripts --prefer-offline
+# Set production environment
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy the built application
-COPY --from=builder /app/.next ./.next
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy public assets
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-#COPY --from=builder /app/next.config.js ./
-#COPY --from=builder /app/middleware.js ./ # If you have a middleware.js file
+
+# Copy the standalone server and static files (this is the key optimization!)
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy your config file
+COPY --from=builder /app/next.config.mjs ./
+
+USER nextjs
 
 EXPOSE 3000
 
-# Command to start the Next.js app using npm
-CMD npm start
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Use the standalone server (much smaller than full Next.js + node_modules)
+CMD ["node", "server.js"]

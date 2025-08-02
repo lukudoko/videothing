@@ -135,7 +135,7 @@ def transcribe_video_with_whisper(
         progress_callback(85) # Progress before writing SRT (approx. 85%)
 
         # Extract segments and write to SRT file
-        srt_filepath = f"{os.path.splitext(video_filepath)[0]}.srt"
+        srt_filepath = f"{os.path.splitext(video_filepath)[0]}.ja.srt"
         _write_srt(result["segments"], srt_filepath)
 
         progress_callback(100) # Final progress: 100%

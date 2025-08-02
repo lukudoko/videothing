@@ -1,0 +1,25 @@
+# Ignore virtual environments
+venv/
+env/
+.venv/
+backend/venv/
+backend/env/
+backend/.venv/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore logs
+*.log
+
+# Ignore downloads directory (if it exists locally)
+downloads/

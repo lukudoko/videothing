@@ -21,7 +21,6 @@ services:
       context: .
       dockerfile: Dockerfile.backend
       args:
-        # Pass your host user's UID and GID
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
     container_name: python-backend
